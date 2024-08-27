@@ -165,12 +165,8 @@ relevant_y_order = y_order[y_order <= t0]
 
 S = prod(1 - sapply(relevant_y_order, function(yi) sum(yj == yi & dj == 1) / sum(yj >= yi)))
 
-
-#pilot = as.numeric(args[5])
-
 main.dir <- "/users/zfu1/tree_project/final/"
 pilot.dir <- "sim_fin"
-#pilot.dir <- paste0("pilot", pilot)
 if(file.exists(pilot.dir)) {
   setwd(file.path(main.dir, pilot.dir))
 } else {
