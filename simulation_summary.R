@@ -4,6 +4,21 @@ rm(list = ls())
 
 mydir = ".../simulation_fin"
 setwd(mydir)
+### parameter setting name
+scenario_list = NULL
+samplesize = NULL
+true_para = NULL
+sd_par_est = NULL
+mean_sd_par = NULL
+mean_point_est = NULL
+mean_cindex_est = NULL
+mean_cpoint_est = NULL
+mean_cregin_est = NULL
+covrg = NULL
+sd_point_est = NULL
+mean_S_est = NULL
+mean_cind_est = NULL
+all_conv = NULL
 
 ### point estimate and inference
 allfiles = list.files()
@@ -12,9 +27,17 @@ for (i in 1:length(allfiles)) { ## for each scenario
   subdir = paste0(mydir, "/", senario)
   setwd(subdir)
   print(subdir)
-  point_est = NULL; cindex_est = NULL; cpoint_est = NULL; cregin_est = NULL; S_est = NULL; S_true_est = NULL
+  point_est = NULL; 
+  cindex_est = NULL; 
+  cpoint_est = NULL; 
+  cregin_est = NULL; 
+  S_est = NULL; 
+  S_true_est = NULL
   sd_par = NULL
-  ci_par_mat = NULL; ci_cpt_mat = NULL; ci_crup_mat = NULL; ci_crlo_mat = NULL
+  ci_par_mat = NULL; 
+  ci_cpt_mat = NULL; 
+  ci_crup_mat = NULL; 
+  ci_crlo_mat = NULL
   conv = NULL
   CI.index = NULL
   CI.cp = NULL
@@ -44,27 +67,25 @@ for (i in 1:length(allfiles)) { ## for each scenario
     CI.crlo = append(CI.crlo, CI_index_cr_lo)
     S_est = append(S_est, S)
   }
-
-  apply(bias_ls, 2,mean)
-  mean(cindex_est)
-  mean(bias_cp_ls)
-  apply(bias_cr_ls, 2,mean)
-  mean(S_est)
-  apply(point_est, 2, sd)
-  sd(cpoint_est)
-  apply(cregin_est, 2, sd)
-  sd(cindex_est)
-  sd(S_est)
-  apply(sd_par, 2, mean)
-  apply(CI.index, 2, mean)
-  mean(CI.cp)
-  mean(CI.crup)
-  mean(CI.crlo)
+    samplesize = append(samplesize, n)
+    true_para  = rbind(true_para, theta_true)
+    mean_point_est = rbind(mean_point_est, apply(point_est, 2, mean))
+    mean_cindex_est = rbind(mean_cindex_est, apply(cindex_est, 2, mean))
+    mean_cpoint_est = rbind(mean_cpoint_est, apply(cpoint_est, 2, mean))
+    mean_cregin_est = rbind(mean_cregin_est, apply(cregin_est, 2, mean))
+    sd_point_est = rbind(sd_point_est, apply(point_est, 2, sd))
+    mean_sd_par = rbind(mean_sd_par, apply(sd_par, 2, mean))
+    covrg = rbind(covrg, apply(CI.index, 2, mean))
+    all_conv = append(all_conv, mean(conv))
+    mean_S_est = append(mean_S_est, mean(S_est,na.rm = TRUE))
+    mean_cind_est = append(mean_cind_est, mean(cind_est))
+    setwd(mydir)
 }
 
 bias = mean_point_est -true_para
 
-mysheet = data.frame(scenario_list, true_para, mean_point_est, bias, sd_point_est, mean_sd_par[,1:4], mean_S_est, mean_cindex_est, all_conv, covrg, mean_cpoint_est)
+mysheet = data.frame(scenario_list, true_para, mean_point_est, bias, sd_point_est, 
+                     mean_sd_par[,1:4], mean_S_est, mean_cindex_est, all_conv, covrg, mean_cpoint_est)
 colnames(mysheet) = c("scenario", 
                       "true value b0", "true value logb1", 
                       "true value a1", "true value a2", 
