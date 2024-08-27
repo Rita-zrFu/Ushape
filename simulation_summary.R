@@ -3,7 +3,7 @@ library(openxlsx)
 # summarize rda files from simulations into data.frame
 
 # function to write results into excel
-write_vector_to_excel <- function(file_path, row_number, data) {
+write_to_excel <- function(file_path, start_row, data, col_names) {
   # Load existing workbook or create a new one
   if (file.exists(file_path)) {
     wb <- loadWorkbook(file_path)
@@ -11,35 +11,26 @@ write_vector_to_excel <- function(file_path, row_number, data) {
     wb <- createWorkbook()
     addWorksheet(wb, "Sheet1")
   }
-
-  writeData(wb, sheet = 1, x = t(as.data.frame(vector_data)), startRow = row_number, startCol = 1, colNames = FALSE, rowNames = FALSE)
+  if(start_row ==1){
+    writeData(wb, sheet = 1, x=as.data.frame(matrix(col_names, nrow=1)), startRow = start_row, startCol = 1, colNames = FALSE, rowNames = FALSE)
+    start_row = start_row+1
+    }
+   writeData(wb, sheet = 1, x = data, startRow = start_row, startCol = 1, colNames = FALSE, rowNames = FALSE)
   saveWorkbook(wb, file_path, overwrite = TRUE)
 }
 
 mydir = ".../simulation_fin"
 setwd(mydir)
+  # column names of the sheet
+mycolnames = c("sample size", "scenario", " ", "b0", "logb1", "a1", "a2", 
+               "critical point", "critical region lower bound", "critical region upper bound",
+               "C index", "survival probability")
 file_path <- "example.xlsx"  # Path to your Excel file
-
-### parameter setting name
-scenario_list = NULL
-samplesize = NULL
-true_para = NULL
-sd_par_est = NULL
-mean_sd_par = NULL
-mean_point_est = NULL
-mean_cindex_est = NULL
-mean_cpoint_est = NULL
-mean_cregin_est = NULL
-covrg = NULL
-sd_point_est = NULL
-mean_S_est = NULL
-mean_cind_est = NULL
-all_conv = NULL
 
 ### point estimate and inference
 allfiles = list.files()
+start_row = 1
 for (i in 1:length(allfiles)) { ## for each scenario
-  
   senario  = allfiles[i]
   subdir = paste0(mydir, "/", senario)
   setwd(subdir)
@@ -60,7 +51,9 @@ for (i in 1:length(allfiles)) { ## for each scenario
   CI.cp = NULL
   CI.crup = NULL
   CI.crlo = NULL
-  bias_ls = NULL; bias_cp_ls = NULL; bias_cr_ls = NULL
+  bias_ls = NULL; 
+  bias_cp_ls = NULL; 
+  bias_cr_ls = NULL
   
   for (j in 1:length(list.files())) { ## for each replication
     load(list.files()[j])
@@ -76,7 +69,6 @@ for (i in 1:length(allfiles)) { ## for each scenario
     ci_par_mat = rbind(ci_par_mat, ci_par)
     ci_crup_mat = rbind(ci_crup_mat, ci_cr_up)
     ci_crlo_mat = rbind(ci_crlo_mat, ci_cr_lo)
-      
     conv = append(conv, converg)
     CI.index = rbind(CI.index, CI_index_par)
     CI.cp = append(CI.cp, CI_index_cp)
@@ -84,31 +76,18 @@ for (i in 1:length(allfiles)) { ## for each scenario
     CI.crlo = append(CI.crlo, CI_index_cr_lo)
     S_est = append(S_est, S)
   }
-    mean_cindex_est = apply(cindex_est, 2, mean)
-    mean_cregin_est = apply(cregin_est, 2, mean)
 
     setwd(mydir)
 ############### add in how you calculated the true value of C and S ######################
-  
-    vector_data <- c(n, ei, apply(point_est, 2, mean) -theta_true, mean(cind_est), mean(S_est,na.rm = TRUE), 
-                     apply(point_est, 2, sd), 
-                     apply(sd_par, 2, mean)[,1:4], mean(conv), 
-                     apply(CI.index, 2, mean), apply(cpoint_est, 2, mean))  # Define the data to write
-    write_vector_to_excel(file_path, i, vector_data)  # Write data to the i-th row
-}
-############ this is not the form you present in the manuscript ###############
-colnames(mysheet) = c("scenario", 
-                      "true value b0", "true value logb1", 
-                      "true value a1", "true value a2", 
-                      "mean est b0", "mean est logb1", "mean est a1", "mean est a2", 
-                      "bias b0", "bias logb1", "bias a1", "bias a2",
-                      "sd est b0", "sd est logb1", "sd est a1", "sd est a2", 
-                      "mean sd b0", "mean sd b1", "mean sd a1", "mean sd a2",
-                      "mean_est_S", "mean est C index", "convergence.index",
-                      "95% coverage rate b0", "95% coverage rate logb1", 
-                      "95% coverage rate a1", "95% coverage rate a2", "critical point")
+  ### cindex_true = 
+  ### S_true = 
+    vector_data <- matrix(c(apply(point_est, 2, mean) -theta_true, mean(bias_cp_ls), apply(bias_cr_ls, 2, mean), 
+                            mean(cindex_est)-cindex_true, mean(S_est,na.rm = TRUE) - S_true, 
+                     apply(point_est, 2, sd), sd(cpoint_est), apply(cregin_est, 2, sd), sd(cindex_est), sd(S_est, na.rm=TRUE),
+                     apply(sd_par, 2, mean)[,1:4], apply(sd_par, 2, mean)[,7:9], "-", "-",  
+                     apply(CI.index, 2, mean), mean(CI.cp), mean(CI.crlo), mean(CI.crup), "-", "-"), nrow=4, byrow=TRUE)  # Define the data to write
 
-# Rearrange the columns to be more intuitive
-mysheet <- mysheet[ , c(1,2,6,10,14,18,3,7,11,15,19,4,8,12,16,20,5,9,13,17,21,22,
-                        23,24,25,26,27,28,29)]
-write.csv(mysheet, "sim_result.csv", row.names = FALSE)
+  write_to_excel(file_path, start_row, vector_data, mycolnames)  # Write data to the i-th row
+  start_row = start_row + length(all.files)
+}
+
