@@ -1,9 +1,25 @@
 rm(list = ls())
-
+library(openxlsx)
 # summarize rda files from simulations into data.frame
+
+# function to write results into excel
+write_vector_to_excel <- function(file_path, row_number, data) {
+  # Load existing workbook or create a new one
+  if (file.exists(file_path)) {
+    wb <- loadWorkbook(file_path)
+  } else {
+    wb <- createWorkbook()
+    addWorksheet(wb, "Sheet1")
+  }
+
+  writeData(wb, sheet = 1, x = t(as.data.frame(vector_data)), startRow = row_number, startCol = 1, colNames = FALSE, rowNames = FALSE)
+  saveWorkbook(wb, file_path, overwrite = TRUE)
+}
 
 mydir = ".../simulation_fin"
 setwd(mydir)
+file_path <- "example.xlsx"  # Path to your Excel file
+
 ### parameter setting name
 scenario_list = NULL
 samplesize = NULL
@@ -23,6 +39,7 @@ all_conv = NULL
 ### point estimate and inference
 allfiles = list.files()
 for (i in 1:length(allfiles)) { ## for each scenario
+  
   senario  = allfiles[i]
   subdir = paste0(mydir, "/", senario)
   setwd(subdir)
@@ -67,25 +84,19 @@ for (i in 1:length(allfiles)) { ## for each scenario
     CI.crlo = append(CI.crlo, CI_index_cr_lo)
     S_est = append(S_est, S)
   }
-    samplesize = append(samplesize, n)
-    true_para  = rbind(true_para, theta_true)
-    mean_point_est = rbind(mean_point_est, apply(point_est, 2, mean))
-    mean_cindex_est = rbind(mean_cindex_est, apply(cindex_est, 2, mean))
-    mean_cpoint_est = rbind(mean_cpoint_est, apply(cpoint_est, 2, mean))
-    mean_cregin_est = rbind(mean_cregin_est, apply(cregin_est, 2, mean))
-    sd_point_est = rbind(sd_point_est, apply(point_est, 2, sd))
-    mean_sd_par = rbind(mean_sd_par, apply(sd_par, 2, mean))
-    covrg = rbind(covrg, apply(CI.index, 2, mean))
-    all_conv = append(all_conv, mean(conv))
-    mean_S_est = append(mean_S_est, mean(S_est,na.rm = TRUE))
-    mean_cind_est = append(mean_cind_est, mean(cind_est))
+    mean_cindex_est = apply(cindex_est, 2, mean)
+    mean_cregin_est = apply(cregin_est, 2, mean)
+
     setwd(mydir)
+############### add in how you calculated the true value of C and S ######################
+  
+    vector_data <- c(n, ei, apply(point_est, 2, mean) -theta_true, mean(cind_est), mean(S_est,na.rm = TRUE), 
+                     apply(point_est, 2, sd), 
+                     apply(sd_par, 2, mean)[,1:4], mean(conv), 
+                     apply(CI.index, 2, mean), apply(cpoint_est, 2, mean))  # Define the data to write
+    write_vector_to_excel(file_path, i, vector_data)  # Write data to the i-th row
 }
-
-bias = mean_point_est -true_para
-
-mysheet = data.frame(scenario_list, true_para, mean_point_est, bias, sd_point_est, 
-                     mean_sd_par[,1:4], mean_S_est, mean_cindex_est, all_conv, covrg, mean_cpoint_est)
+############ this is not the form you present in the manuscript ###############
 colnames(mysheet) = c("scenario", 
                       "true value b0", "true value logb1", 
                       "true value a1", "true value a2", 
