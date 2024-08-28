@@ -1,9 +1,9 @@
 ## worked on Eli Lilly dataset
-## one biomarker at a time, start from HDL first, then use BMI
-# Y: only focus on the primary outcome
-# Z: binary covariate Z2: smoke Yes->1
-#restrict age>55
-#use gaussian kernel; the previous version used knn kernel
+## one biomarker: BMI
+# Y: only focus on the primary outcome (or all cause mortality?)
+# Z: binary covariate smoke Yes->1; age 65+ -> 1
+#restrict age>55; BMI ~ (18,35)
+#use gaussian kernel
 
 ############## packages ################
 rm(list = ls())
@@ -24,22 +24,19 @@ library(pec)
 library(ggplot2)
 library(plot3D)
 
-
 ############## import data #################
-setwd("D:/working/USR project/real data")
+setwd(".../real data")
 realdata = as.data.frame(read_excel("simulated_datav5.xlsx"))
-#
 mydat = realdata[which(!is.na(realdata$BMIBASE) & !is.na(realdata$Age)& 
                          !is.na(realdata$Simulated_ID) & 
                          !is.na(realdata$SMOKE)),]
 mydat=mydat%>%filter(BMIBASE<35)%>%filter(BMIBASE>18)#%>%filter(Age>55)
-Y = NULL; censor = NULL; delta = NULL; X = NULL; age = NULL; smoke = NULL; ID = NULL
+Y = NULL; delta = NULL; X = NULL; age = NULL; smoke = NULL; ID = NULL
 
 for (i in unique(mydat$Simulated_ID)) {# some IDs are NA like 997
   temp_dat = subset(mydat, Simulated_ID == as.numeric(i))
   X[i] = unique(temp_dat$BMIBASE)
   age[i] = unique(temp_dat$Age)
-  #gender[i] = unique(temp_dat$Gender)
   smoke[i] = unique(temp_dat$SMOKE)
   ID[i] = i
   #if(sum(temp_dat$PRIOUTCM=="Y")>0){
@@ -49,28 +46,22 @@ for (i in unique(mydat$Simulated_ID)) {# some IDs are NA like 997
      ){
     Y[i] = tail(temp_dat$time,1)
     # Y is the first time observed primary outcome
-    censor[i] = subset(temp_dat, OUTCOME=="Last Observation for Patient")$time
     delta[i] = 1
   }else{
-    Y[i] = censor[i] = subset(temp_dat, OUTCOME=="Last Observation for Patient")$time
+    Y[i] = subset(temp_dat, OUTCOME=="Last Observation for Patient")$time
     delta[i] = 0
   }
 }
-# do not identify censor like this, do not use censor below
-id_dat = data.frame(ID=ID, age = age, smoke = smoke, Y = Y, censor = censor, 
-                    delta = delta, X = X)
-id_dat = id_dat%>% #z1 = ifelse(id_dat$age>65, 1, 0),
+id_dat = data.frame(ID=ID, age = age, smoke = smoke, Y = Y, delta = delta, X = X)
+id_dat = id_dat%>% 
   mutate(z1 = ifelse(id_dat$smoke=="Y",1,0),
          z2 = ifelse(id_dat$age>65, 1, 0)
-           
-          #z2 = ifelse(id_dat$gender == "M", 1, 0)
          )%>% #  
   filter(!if_all(.fns = is.na))
 #nrow(id_dat)
 censor_rate = sum(id_dat$delta)/length(id_dat$X)
 
 new_z = cbind(id_dat$z1, id_dat$z2)
-#new_z=id_dat$z2
 plot(id_dat$X, id_dat$Y, xlab = "BMI", ylab = "survival outcome", 
      main = "Scatter plot between survival outcome and biomarker")
 
@@ -80,7 +71,7 @@ x_pair = NULL
 for (ix in 1:4){
   set.seed(ix)
   Zi <- unique(new_z)[ix,]
-  submat = as.data.frame(subset(id_dat, z1==Zi[1]&z2==Zi[2]))#z1==Zi[1]&
+  submat = as.data.frame(subset(id_dat, z1==Zi[1]&z2==Zi[2]))
   Xi <- submat$X
   ni <- nrow(submat)
   Yi <- submat$Y
@@ -89,15 +80,6 @@ for (ix in 1:4){
   ti <- tail(unique(sort(Yi[submat$delta==1])), n=14)[1:10]  ## ti is the sequence of observed failure time
   xl_t = NULL
   xr_t = NULL
-  # i=0
-  # num_event = NULL
-  # num_censor = NULL
-  # for (k in unique(sort(Yi[submat$delta==1]))) {
-  #   y_bin = sapply(1:ni, function(i) ifelse(Yi[i]>=k,0,ifelse(deltai[i]==1,1,NA)))
-  #   i=i+1
-  #   num_event[i] = sum(y_bin==1, na.rm = TRUE)
-  #   num_censor[i] = sum(y_bin==0, na.rm = TRUE)
-  #   }
   
   for (j in 1:length(ti)) {
     t=ti[j]
@@ -181,11 +163,9 @@ cindex_fun <- function(theta) {
   y = id_dat[,4]
   d = id_dat[,6]
   cindex_value = -Cindex(Surv(y, d), htemp)
-  return(cindex_value)#+penalty(theta)
+  return(cindex_value)
 }
-#par_DE = c("cindex_fun", "id_dat", "est_par", "penalty")
-controlDE <- list(reltol=.0001, steptol=100, itermax = 1000, trace = 50)#,
-                  #parallelType = 1, parVar = par_DE)
+controlDE <- list(reltol=.0001, steptol=100, itermax = 1000, trace = 50)
 fit_DE = DEoptim(fn = cindex_fun, lower = est_par-10, upper = est_par+10, control=controlDE)
 mypar = fit_DE$optim$bestmem
 
@@ -195,11 +175,7 @@ plot(id_dat$X, H_fun, xlab = "BMI", ylab = "estimated H function",
      main = "scatter plot of estimated H function and BMI",
      xlim = c(15,40),ylim = c(-40,-10))
 
-###### calculate critical point ####
-cpoint1_fun(mypar)
-cpoint2_fun(mypar)
-cpoint3_fun(mypar)
-cpoint4_fun(mypar)
+###### estimating critical point and critical region ####
 
 cpoint1_fun = function(par){
   return((-par[1]-par[4])/(1+par[2]))#0 1 nonsmoking old
@@ -213,11 +189,10 @@ cpoint3_fun = function(par){
 cpoint4_fun = function(par){
   return((-par[1]+par[3]-par[4])/(1+par[2]))#1 1 smoking old 
 }
-
-
-# saveRDS(fit_DE, "D:/working/USR project/real data/fit_DE.rds")
-# saveRDS(mypar,"D:/working/USR project/real data/mypar.rds")
-# mypar = readRDS("D:/working/USR project/real data/mypar.rds")
+cpoint1_fun(mypar)
+cpoint2_fun(mypar)
+cpoint3_fun(mypar)
+cpoint4_fun(mypar)
 
 cregin1_fun = function(par){
   return(c(25, (-25-par[1]-par[3]*1)/par[2]))
@@ -229,60 +204,12 @@ cregin1_fun(mypar)
 cregin2_fun(mypar)
 
 est_cregin = c(25, (-25-mypar[1]-mypar[4]*1)/mypar[2])
-#est_cregin_2 = c(mypar[3]+25, (-25-mypar[1]-mypar[4]*1)/mypar[2])
+est_cregin_2 = c(mypar[3]+25, (-25-mypar[1]-mypar[4]*1)/mypar[2])
 est_cregin_3 = c(25, (-25-mypar[1])/mypar[2])
-#est_cregin_4 = c(mypar[3]+25, (-25-mypar[1])/mypar[2])
-
-
-########## bootstrap to get variance  #########
-set.seed(23)
-random_num = runif(nrow(id_dat),0.48,0.52)# weight都是1
-weights <- random_num/sum(random_num)
-
-ind_big= lapply(1:4, function(i){
-  set.seed(i)
-  sample(nrow(id_dat))#, replace = TRUE, prob = weights)
-})#sample index
-mylist=lapply(ind_big, function(ind){
-  print(ind)
-  mat = id_dat[ind, ]
-  penalty <- function(theta) {
-    if (theta[2]< 1) {
-      return(1e6)
-    }
-    return(0)
-  }
-  cindex_my = function(theta){
-    #mat = id_dat[ind, ]
-    htemp <- apply(mat[,7:8], 1, function(x){
-      return(max(-x[1], theta[1] + theta[2] * x[1] + theta[3] * x[2]))
-    })
-    d <- mat[,6]
-    y <- mat[,4]
-    return(-Cindex(Surv(y, d), htemp)+penalty(theta))
-  }
-  #par_DE = c("cindex_my", "est_par", "penalty","mat")
-  controlDE <- list(reltol=.0001, steptol=100, itermax = 1000, trace = 50)#,
-                    #parallelType = 1, parVar = par_DE)
-  fit_DE = DEoptim(fn = cindex_my, lower = est_par-10, upper = est_par+10, control=controlDE)
-  mypar = fit_DE$optim$bestmem
-  cindex = -fit_DE$optim$bestval
-  temp_cpoint = c((-mypar[1]-mypar[3])/(1+mypar[2]),#1
-                  (-mypar[1])/(1+mypar[2])#0
-  )
-  return(c(mypar, cindex, temp_cpoint))
-})
-
-
-##control list, iteration numbers
-##nmk给multiple initial values ##weighted bootstrap
-
+est_cregin_4 = c(mypar[3]+25, (-25-mypar[1])/mypar[2])
 
 ####### bootstrap variance #######
-##### read from shuo #######
-# one covariate
-#setwd("D:/working/USR project/real data/results from shuo")
-temp = list.files("D:/working/USR project/real data/shuo results z1 smk z2 age")
+temp = list.files(".../results z1 smk z2 age")
 mypar_list = NULL
 cindex_list = NULL
 cp1=NULL
@@ -291,7 +218,7 @@ cp3=NULL
 cp4=NULL
 
 for (i in temp) {
-  boot_one = readRDS(paste0("D:/working/USR project/real data/results shuo smk ag/",i))
+  boot_one = readRDS(paste0(".../results smk ag/",i))
   mypar_list = rbind(mypar_list, boot_one[1:4])
   cindex_list = c(cindex_list, boot_one[5])
   cp1 = c(cp1, boot_one[6])
@@ -337,7 +264,7 @@ ci_cpoint4 = c(cpoint4_fun(mypar) - qnorm(0.975, mean=0, sd=1) * sd(cp4),
 
 setdiff(1:1000,as.numeric((do.call(c,strsplit(do.call(rbind,strsplit(list.files(),"_"))[,3],".rds")))))
 
-#### estimating St  ####
+#### estimating Survival probability  ####
 ###### gaussian kernel ####
 ## use H and Y
 gaussian_kernel <- function(x, h=0.5){ # h is bandwidth
@@ -352,8 +279,6 @@ get_s_list = function(group_dat){
   num_times <- length(y_order)
   gaussian_values <- gaussian_kernel(matrix(rep(H_est, each = n), nrow=n) - 
                                          matrix(rep(H_est, n), nrow=n))
-  #每一行就是，eg第一行是，h1,h2,h3...hlast patient和h1的差别
-  #第二行是h1,h2,...hlast patient和h2的差别
   S_list_gauss <- matrix(0, n, num_times)
   for(i in 1:n)  { # for every patient
     for (j in 1:num_times) { # at every time point
@@ -380,39 +305,16 @@ get_s_list = function(group_dat){
 }
 
 ####### plot figure 1 ######
-g1 = id_dat[id_dat$z1==0 & id_dat$z2==1,]
-g2 = id_dat[id_dat$z1==0 & id_dat$z2==0,]
-g3 = id_dat[id_dat$z1==1 & id_dat$z2==0,]
-g4 = id_dat[id_dat$z1==1 & id_dat$z2==1,]
-
-plot_t1 = sort(unique(g1$Y[g1$delta == 1]))
-plot_t2 = sort(unique(g2$Y[g2$delta == 1]))
-plot_t3 = sort(unique(g3$Y[g3$delta == 1]))
-plot_t4 = sort(unique(g4$Y[g4$delta == 1]))
-
-s_list1 = get_s_list(g1)
-yf1 = do.call(cbind,lapply(s_list1, function(list) return(list$yf)))
-x_order1 = s_list1[[1]]$x_ord
-#h_order1 = s_list1[[1]]$h_ord
-
-s_list2 = get_s_list(g2)
-yf2 = do.call(cbind,lapply(s_list2, function(list) return(list$yf)))
-x_order2 = s_list2[[1]]$x_ord
-h_order2 = s_list2[[1]]$h_ord
-
-s_list3 = get_s_list(g3)
-yf3 = do.call(cbind,lapply(s_list3, function(list) return(list$yf)))
-x_order3 = s_list3[[1]]$x_ord
-h_order3 = s_list3[[1]]$h_ord
-
-s_list4 = get_s_list(g4)
-yf4 = do.call(cbind,lapply(s_list4, function(list) return(list$yf)))
-x_order4 = s_list4[[1]]$x_ord
-h_order4 = s_list4[[1]]$h_ord
-
-km_fit = survfit(Surv(Y, delta)~1,data = g4)
-avg_S_gauss = colMeans(yf4) 
-jpeg('D:/working/USR project/real data/z1 smk z2 age pic/km4.jpeg')
+for (i in 1:4){
+  group_dat = id_dat[id_dat$z1==nique(new_z)[i,1] & id_dat$z2==unique(new_z)[i,2],]
+  plot_t = sort(unique(group_dat$Y[group_dat$delta == 1]))
+  s_list = get_s_list(group_dat)
+  yf = do.call(cbind,lapply(s_list, function(list) return(list$yf)))
+  x_order = s_list[[1]]$x_ord
+  h_order = s_list[[1]]$h_ord
+  km_fit = survfit(Surv(Y, delta)~1,data = group_dat)
+  avg_S_gauss = colMeans(yf) 
+  jpeg(paste0('.../z1 smk z2 age pic/km', i, '.jpeg'))
 plot(km_fit, 
      main = "Kaplan-Meier Survival Curve", 
      xlab = "Time", 
@@ -425,46 +327,36 @@ dev.off()
 
 time_points = km_fit$time[km_fit$n.event != 0]
 l2_distance <- sum((km_fit$surv[km_fit$n.event != 0] - avg_S_gauss)^2 * c(diff(time_points),0))
-
-z_sm1 = apply(yf1,2,function(m){1-ksmooth(x_order1,m,bandwidth = 2)$y})
-z_sm2 = apply(yf2,2,function(m){1-ksmooth(x_order2,m,bandwidth = 2)$y})
-z_sm3 = apply(yf3,2,function(m){1-ksmooth(x_order3,m,bandwidth = 2)$y})
-z_sm4 = apply(yf4,2,function(m){1-ksmooth(x_order4,m,bandwidth = 2)$y})
-#yf1对x的图是0-1图，z_sm就是smooth过后的yf1
-#ksmooth先把x增序排列了，然后smooth的y！！！我们的xorder1是降序排列的！！
-#所以画出来的ushape是相反的
-#所以我们在画图的时候要用ksmooth产生的x,或者用reverse的ksmooth产生的y
-jpeg('D:/working/USR project/real data/z1 smk z2 age pic/g1.jpeg')
-persp3D(x=ksmooth(x_order1,yf1[,1],bandwidth = 2)$x,
-        y=plot_t1,#变成[1:6]
-        z=z_sm1,
+z_sm = apply(yf,2,function(m){1-ksmooth(x_order,m,bandwidth = 2)$y})
+jpeg(paste0('.../z1 smk z2 age pic/fun1_g', i, '.jpeg'))
+persp3D(x=ksmooth(x_order,yf[,1],bandwidth = 2)$x,
+        y=plot_t,
+        z=z_sm,
         clim = c(0,1), clab = "risk", main="estimated risk", 
         xlab="biomarker", ylab="time", zlab="risk",
         scale=10, theta =  10, phi=10,
         ticktype="detailed",
         d=0.8, ltheta =10,lphi=90, r=10)
 dev.off()
-#data tie; risk set
-plot(plot_t3,z_sm3[300,])#为什么有两个点在天上
-z_sm2 = apply(yf3,2,function(m){1-ksmooth(x_order3,m,bandwidth = 2)$y})
 
-
-##### plot figure 2#####
+##### plot figure 2 #####
 #z_sm = apply(yf2,2,function(m){ksmooth(x_order2,m,bandwidth = 2)$y})
-x_sm4 = ksmooth(x_order4,yf4[,5],bandwidth = 2)$x
-s_long = data.frame(t = rep(plot_t4,times=nrow(yf4)),
-                    bmi = rep(x_sm4, each=ncol(yf4)),
-                    st = c(t(z_sm4)))%>%
+x_sm = ksmooth(x_order, yf[,5],bandwidth = 2)$x
+s_long = data.frame(t = rep(plot_t, times=nrow(yf)),
+                    bmi = rep(x_sm, each=ncol(yf)),
+                    st = c(t(z_sm)))%>%
   mutate(t=as.factor(t))%>%
   mutate(bmi=as.factor(bmi))
-
-jpeg('D:/working/USR project/real data/z1 smk z2 age pic/fun4fun.jpeg',width = 800, height=1000,res=0.05)
+jpeg('.../z1 smk z2 age pic/fun2_g', i, '.jpeg',width = 800, height=1000,res=0.05)
 ggplot(s_long, aes(x=t, y=bmi))+
   geom_tile(aes(fill=st))+
   theme(axis.text.x=element_text(angle=45,hjust=1, vjust=1))+
   theme_classic()+
   scale_fill_viridis_c(limits=c(0,1))
 dev.off()
+}
+
+
 
 ##### pava ####
 S_list_knn[is.na(S_list_knn)]=0
@@ -486,7 +378,6 @@ legend("bottomright",
        y.intersp = 0.2,
        x.intersp = 0.5,
        text.width = 5) 
-
 
 plot(km_fit, main = "Kaplan-Meier Survival Curve", xlab = "Time", ylab = "Probability of Survival")
 lines(km_fit$time, avg_S_knn, col = "red", lwd = 2, lty = 1)
