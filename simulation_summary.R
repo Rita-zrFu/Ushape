@@ -78,9 +78,45 @@ for (i in 1:length(allfiles)) { ## for each scenario
   }
 
     setwd(mydir)
-############### add in how you calculated the true value of C and S ######################
-  ### cindex_true = 
-  ### S_true = 
+  
+############### calculate the true value of C and S ######################
+#### true value of C ####
+n=100000
+set.seed(23)
+z1 <- rnorm(n, 0, 1)
+z2 <- rbinom(n, 1, 0.5)
+x <- runif(n, -50, 50)
+t1 <- -x + alpha1 * z1
+t2 <- beta0 + beta1 * x + alpha2 * z2
+if (ei==1){
+  epsilon = rnorm(n, 0, 1)
+}else{
+  epsilon = rexp(n, 1)
+}
+censor = runif(n, 8.5, 9.4)
+t = 10*plogis(pmax(t1,t2) + epsilon, scale=20)
+y <- pmin(t, censor)
+delta <- sapply(1:n, function(i) {
+  return(as.numeric(t[i] < censor[i]))
+})
+
+htemp <- pmax(-x + alpha1 * z1, beta0 + beta1 * x + alpha2 * z2)
+c_true = Cindex(Surv(y, delta), htemp)
+
+
+#### true value of St ####
+n_new = 100000
+set.seed(23)
+t1_new = -1
+t2_new <- beta0 + beta1 * 1 + alpha2 * 0.5
+if (ei==1){
+  epsilon_new = rnorm(n_new, 0, 1)
+}else{
+  epsilon_new = rexp(n_new, 1)
+}
+t_new = 10*plogis(pmax(t1_new,t2_new) + epsilon_new, scale=20);range(t_new)
+s_true = sum(t_new>=5)/length(t_new)
+ 
     vector_data <- matrix(c(apply(point_est, 2, mean) -theta_true, mean(bias_cp_ls), apply(bias_cr_ls, 2, mean), 
                             mean(cindex_est)-cindex_true, mean(S_est,na.rm = TRUE) - S_true, 
                      apply(point_est, 2, sd), sd(cpoint_est), apply(cregin_est, 2, sd), sd(cindex_est), sd(S_est, na.rm=TRUE),
