@@ -139,13 +139,13 @@ CI_index_cp = cp_true>ci_cpoint[1] & cp_true<ci_cpoint[2]
 CI_index_cr_up = cr_true[2]>ci_cr_up[1] & cr_true[2]<ci_cr_up[2]
 CI_index_cr_lo = cr_true[1]>ci_cr_lo[1] & cr_true[1]<ci_cr_lo[2]
 
-########### estimating St  ############
-## St(5.1|0, c(0, 0)) ##calculated by R function?
-t0 = 5.1
+########### estimating S train  ############
+## St(5|1, c(0, 0.5)) 
+t0 = 5
 y_order = sort(unique(y[delta == 1]))
 H_est = pmax(-x + est_par[3] * z1, 
              est_par[1] + exp(est_par[2]) * x + est_par[4] * z2)
-H0 = pmax(0, est_par[1])
+H0 = pmax(-1, est_par[1] + exp(est_par[2]) + est_par[4] * 0.5)
 
 sort_x = sort(H_est-H0,index.return=TRUE)$x
 sort_ind = sort(H_est-H0,index.return=TRUE)$ix
@@ -165,7 +165,7 @@ relevant_y_order = y_order[y_order <= t0]
 
 S = prod(1 - sapply(relevant_y_order, function(yi) sum(yj == yi & dj == 1) / sum(yj >= yi)))
 
-main.dir <- "/users/zfu1/tree_project/final/"
+main.dir <- ".../tree_project/final/"
 pilot.dir <- "sim_fin"
 if(file.exists(pilot.dir)) {
   setwd(file.path(main.dir, pilot.dir))
