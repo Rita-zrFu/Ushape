@@ -87,12 +87,18 @@ fit_DE = DEoptim(fn = cindex_DE, lower = theta_true-5, upper = theta_true+5, con
 est_par = fit_DE$optim$bestmem
 est_cindex = -fit_DE$optim$bestval
 
-## given z1=0.5,z2=1,estimate change/critical point, critical region
+## given z1=0.5,z2=1, estimate critical point
+## plus given t = 5, risk = 0.5, estimate critical region
 est_cpoint = (-est_par[1]+est_par[3]*0.5-est_par[4]*1)/(1+exp(est_par[2]))
-est_cregin = c(est_par[3]*0.5-5, (5-est_par[1]-est_par[4]*1)/exp(est_par[2]))
+if(ei==1){
+    c = -20 * log(10/5-1) - qnorm(0.5)
+  }else if(ei==3){
+    c = -20 * log(10/5-1) - qexp(0.5)
+  }
+est_cregin = c(0.5 * est_par[3] - c, (c-est_par[1]-est_par[4])/exp(est_par[2]))
 
 cp_true = (10*0.5+10)/(1+1)
-cr_true = c(5-5, (5+10)/1)
+cr_true = c(5-c, (c+10)/1)
 bias=est_par-theta_true
 bias_cp = est_cpoint-cp_true
 bias_cr = est_cregin-cr_true
@@ -116,7 +122,7 @@ mylist=lapply(mat_big, function(mat){
   }
   fit_nmk = nmk(par = est_par, fn = cindex_my)
   temp_cpoint = (-fit_nmk$par[1]+fit_nmk$par[3]*0.5-fit_nmk$par[4]*1)/(1+exp(fit_nmk$par[2]))
-  temp_cregin = c(fit_nmk$par[3]*0.5-5, (5-fit_nmk$par[1]-fit_nmk$par[4]*1)/exp(fit_nmk$par[2]))
+  temp_cregin = c(fit_nmk$par[3]*0.5-c, (c-fit_nmk$par[1]-fit_nmk$par[4]*1)/exp(fit_nmk$par[2]))
   return(c(fit_nmk$par, fit_nmk$value, fit_nmk$convergence, temp_cpoint, temp_cregin))
 })
 
@@ -136,8 +142,8 @@ ci_cr_lo = c(est_cregin[1] - qnorm(0.975, mean=0, sd=1) * sd_est[8],
 
 CI_index_par = theta_true>ci_par[1:4] & theta_true<ci_par[5:8]
 CI_index_cp = cp_true>ci_cpoint[1] & cp_true<ci_cpoint[2]
-CI_index_cr_up = cr_true[2]>ci_cr_up[1] & cr_true[2]<ci_cr_up[2]
-CI_index_cr_lo = cr_true[1]>ci_cr_lo[1] & cr_true[1]<ci_cr_lo[2]
+CI_index_cr_up = cr_true[2]>ci_cr_up[1] & cr_true[2]<ci_cr_up[2] # coverage prob for CR
+CI_index_cr_lo = cr_true[1]>ci_cr_lo[1] & cr_true[1]<ci_cr_lo[2] # coverage prob for CR
 
 ########### estimating S train  ############
 ## St(5|1, c(0, 0.5)) 
@@ -162,7 +168,6 @@ yj = y[neighbor]
 dj = delta[neighbor]
 
 relevant_y_order = y_order[y_order <= t0]
-
 S = prod(1 - sapply(relevant_y_order, function(yi) sum(yj == yi & dj == 1) / sum(yj >= yi)))
 
 main.dir <- ".../tree_project/final/"
