@@ -10,7 +10,6 @@ rm(list = ls())
 library(readxl)
 library(tidyverse)
 library(devtools)
-#library(survcomp)
 library(DEoptim)
 library(rje)
 library(MASS)
@@ -23,15 +22,21 @@ library(dfoptim)
 library(pec)
 library(ggplot2)
 library(plot3D)
+library(plotly)
 
 ############## import data #################
 setwd(".../real data")
 realdata = as.data.frame(read_excel("simulated_datav5.xlsx"))
-mydat = realdata[which(!is.na(realdata$BMIBASE) & !is.na(realdata$Age)& 
-                         !is.na(realdata$Simulated_ID) & 
-                         !is.na(realdata$SMOKE)),]
-mydat=mydat%>%filter(BMIBASE<35)%>%filter(BMIBASE>18)#%>%filter(Age>55)
-Y = NULL; delta = NULL; X = NULL; age = NULL; smoke = NULL; ID = NULL
+mydat <- realdata %>%
+  filter(!is.na(BMIBASE), !is.na(Age), !is.na(Simulated_ID), !is.na(SMOKE)) 
+
+mydat=mydat%>%filter(BMIBASE<35, BMIBASE>18)%>%
+  mutate(taroutcm =ifelse(OUTCOME %in% c("CV Death(other than Stroke/MI)", 
+                                         "Fatal MI", "Fatal Stroke", "Non-CV Death",
+                                         "Non-Fatal Stroke", "Non-Fatal Silent MI"),
+                          "Y","N"))#%>%filter(Age>55)
+
+Y = delta = X = age = smoke = ID = NULL
 
 for (i in unique(mydat$Simulated_ID)) {# some IDs are NA like 997
   temp_dat = subset(mydat, Simulated_ID == as.numeric(i))
@@ -40,12 +45,8 @@ for (i in unique(mydat$Simulated_ID)) {# some IDs are NA like 997
   smoke[i] = unique(temp_dat$SMOKE)
   ID[i] = i
   #if(sum(temp_dat$PRIOUTCM=="Y")>0){
-  if("CV Death(other than Stroke/MI)"%in% temp_dat$OUTCOME|"Fatal MI" %in%temp_dat$OUTCOME
-     |"Fatal Stroke"%in%temp_dat$OUTCOME|"Non-CV Death" %in% temp_dat$OUTCOME
-     |"Non-Fatal Stroke"%in% temp_dat$OUTCOME|"Non-Fatal Silent MI"%in% temp_dat$OUTCOME 
-     ){
-    Y[i] = tail(temp_dat$time,1)
-    # Y is the first time observed primary outcome
+  if(sum(temp_dat$taroutcm == "Y")>0){
+    Y[i] = tail(subset(temp_dat, taroutcm=="Y")$time,1)
     delta[i] = 1
   }else{
     Y[i] = subset(temp_dat, OUTCOME=="Last Observation for Patient")$time
@@ -56,7 +57,7 @@ id_dat = data.frame(ID=ID, age = age, smoke = smoke, Y = Y, delta = delta, X = X
 id_dat = id_dat%>% 
   mutate(z1 = ifelse(id_dat$smoke=="Y",1,0),
          z2 = ifelse(id_dat$age>65, 1, 0)
-         )%>% #  
+         )%>% 
   filter(!if_all(.fns = is.na))
 #nrow(id_dat)
 censor_rate = sum(id_dat$delta)/length(id_dat$X)
@@ -133,7 +134,7 @@ for (ix in 1:4){
 est_par_list=NULL
 set.seed(23)
 for (j in 1:10) {
-  group_t = x_pair[x_pair[,2]==j & (x_pair[,1]==1 | x_pair[,1]==2|x_pair[,1]==3|x_pair[,1]==4),]
+  group_t = x_pair[x_pair[,2]==j,]
   beta0_est=NULL;beta1_est=NULL;alpha2_est=NULL;alpha1_est=NULL;
   npair=nrow(unique(group_t))
   R=1000
@@ -267,7 +268,7 @@ setdiff(1:1000,as.numeric((do.call(c,strsplit(do.call(rbind,strsplit(list.files(
 #### estimating Survival probability  ####
 ###### gaussian kernel ####
 ## use H and Y
-gaussian_kernel <- function(x, h=0.5){ # h is bandwidth
+gaussian_kernel <- function(x, h=2){ # h is bandwidth
   (1/(sqrt(2*pi)*h)) * exp(-x^2/(2*h^2))
 }
 get_s_list = function(group_dat){
@@ -283,11 +284,9 @@ get_s_list = function(group_dat){
   for(i in 1:n)  { # for every patient
     for (j in 1:num_times) { # at every time point
       t0 = y_order[j]
-      yi_values <- unique(group_dat$Y[group_dat$Y <= t0 
-                                      & group_dat$delta == 1])
+      yi_values <- unique(group_dat$Y[group_dat$Y <= t0 & group_dat$delta == 1])
       S_numerators <- sapply(yi_values, function(yi) {
-        sum(gaussian_values[i, ] * (group_dat$Y == yi) 
-            * (group_dat$delta == 1))
+        sum(gaussian_values[i, ] * (group_dat$Y == yi) * (group_dat$delta == 1))
       })
       S_denominators <- sapply(yi_values, function(yi) {
         sum(gaussian_values[i, ] * (group_dat$Y >= yi))
