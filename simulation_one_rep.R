@@ -69,9 +69,8 @@ nr = nrow(mymat)
 theta_true = c(beta0, log(beta1), alpha1, alpha2)
 
 ############ point estimate ###########
-#### use DEoptim to find a reasonable initial value for optim
 cindex_DE = function(theta){
-  htemp <- apply(mymat[,1:4], 1, function(x){
+  htemp <- apply(mymat[,1:3], 1, function(x){
     return(max(-x[1] + theta[3] * x[2], theta[1] + exp(theta[2]) * x[1] + theta[4] * x[3]))
   })
   d <- mymat[,5]
@@ -113,7 +112,7 @@ mat_big= lapply(1:nboot, function(i){
 
 mylist=lapply(mat_big, function(mat){
   cindex_my = function(theta){
-    htemp <- apply(mat[,1:4], 1, function(x){
+    htemp <- apply(mat[,1:3], 1, function(x){
       return(max(-x[1] + theta[3] * x[2], theta[1] + exp(theta[2]) * x[1] + theta[4] * x[3]))
     })
     d <- mat[,5]
