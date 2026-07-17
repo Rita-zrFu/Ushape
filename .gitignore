@@ -1,0 +1,23 @@
+# Simulation outputs (per-rep RDS files and aggregated CSVs)
+results/
+csv_output/
+figures/
+
+# R serialized objects
+*.rda
+*.RData
+*.rds
+
+# R / RStudio noise
+.Rhistory
+.Rapp.history
+.Rproj.user/
+.Ruserdata
+
+# macOS noise
+.DS_Store
+
+# Cluster logs
+cluster/logs/
+*.out
+*.err
