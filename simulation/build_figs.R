@@ -1,256 +1,232 @@
 #!/usr/bin/env Rscript
 # build_figs.R
-# Reproduce the two USR simulation figures from the aggregated CSVs:
-#   figures/fig_sim_xc.pdf     -- Xc bias, mean +/- 1.96 * ESE, as filled boxes
-#   figures/fig_sim_cindex.pdf -- test-set Harrell C-index, mean +/- 1.96 * SD
+# Build the two USR simulation figures used in the manuscript:
+#   fig_sim_xc.pdf     -- X_c bias, mean +/- 1.96 * ESE, filled boxes
+#   fig_sim_cindex.pdf -- test-set Harrell's C-index, mean +/- 1.96 * SD
 #
-# Panel layout (matches the manuscript captions):
-#   (a) Main grid: beta1 = 2 and 30% censoring, faceted 2x2 by (G, epsilon),
-#       x-axis = sample size n.
-#   (b) Censoring sensitivity at epsilon = N(0,9) and beta1 = 2: the additional
-#       15% and 50% censoring scenarios (target_cens_rate 0.15 and 0.40) for
-#       each G. Faceted by G; x-axis is (n, censoring%) combinations.
-#   (c) Milder U-shape at beta1 = 1 (logistic G, min-EV epsilon). Single panel,
-#       x-axis = n.
+# Each figure has three stacked sections (heights ~ 2.6 : 1.1 : 1.0):
+#   (a) Main grid:  2x2 by (G, epsilon), x = n, methods dodged.   [12 scenarios]
+#   (b) Censoring:  1x2 by G (epsilon = N only), x = "n / cens %"  [ 8 scenarios]
+#                   methods dodged.
+#   (c) beta_1 = 1: 1x1 (logistic, min-EV, 30% cens),              [ 3 scenarios]
+#                   x = n, methods dodged.
 #
-# Method colors and shapes are shared across the two figures.
-#
-# Inputs (defaults):
-#   csv_output/sim_xc.csv, csv_output/sim_cindex.csv
-#
-# The 23-scenario table is embedded below so that this script has no external
-# CSV dependency other than the aggregated MCE/competitor CSVs.
+# Inputs: csv_dir/{sim_xc.csv, sim_cindex.csv, sim_meta.csv}
+# Outputs: out_dir/fig_sim_xc.pdf, out_dir/fig_sim_cindex.pdf
 #
 # Usage:
 #   Rscript build_figs.R [csv_dir] [out_dir]
+# Defaults:
+#   csv_dir = csv_output
+#   out_dir = figures
 
 suppressPackageStartupMessages({
-  library(dplyr)
   library(ggplot2)
   library(patchwork)
+  library(dplyr)
 })
 
 args <- commandArgs(trailingOnly = TRUE)
-csv_dir <- if (length(args) >= 1) args[1] else "csv_output"
-out_dir <- if (length(args) >= 2) args[2] else "figures"
+csvdir <- if (length(args) >= 1) args[1] else "csv_output"
+outdir <- if (length(args) >= 2) args[2] else "figures"
 
-dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
-# --- Scenario table (matches cluster/dispatch_full.sh) ---
-scen <- read.table(text = "
-scenario_id n    ei      G_type   censor_lo censor_hi beta1 target_cens_rate
-S01         200  norm    logistic 1.9800    9.9800    2     0.15
-S02         200  norm    logistic 0.3000    8.3000    2     0.30
-S03         200  norm    logistic 0.1100    4.9100    2     0.40
-S04         500  norm    logistic 1.9800    9.9800    2     0.15
-S05         500  norm    logistic 0.3000    8.3000    2     0.30
-S06         500  norm    logistic 0.1100    4.9100    2     0.40
-S07         1000 norm    logistic 0.3000    8.3000    2     0.30
-S08         200  ev      logistic 0.3300    8.3300    2     0.30
-S09         500  ev      logistic 0.3300    8.3300    2     0.30
-S10         1000 ev      logistic 0.3300    8.3300    2     0.30
-S11         200  norm    exp      0.0400    4.0400    2     0.15
-S12         200  norm    exp      0.0100    1.9100    2     0.30
-S13         200  norm    exp      0.0300    0.8300    2     0.40
-S14         500  norm    exp      0.0400    4.0400    2     0.15
-S15         500  norm    exp      0.0100    1.9100    2     0.30
-S16         500  norm    exp      0.0300    0.8300    2     0.40
-S17         1000 norm    exp      0.0100    1.9100    2     0.30
-S18         200  ev      exp      0.0400    1.8400    2     0.30
-S19         500  ev      exp      0.0400    1.8400    2     0.30
-S20         1000 ev      exp      0.0400    1.8400    2     0.30
-S21         200  ev      logistic 1.9000    7.9000    1     0.30
-S22         500  ev      logistic 1.9000    7.9000    1     0.30
-S23         1000 ev      logistic 1.9000    7.9000    1     0.30
-",
-header = TRUE, stringsAsFactors = FALSE)
+xc   <- read.csv(file.path(csvdir, "sim_xc.csv"),     stringsAsFactors = FALSE)
+ci   <- read.csv(file.path(csvdir, "sim_cindex.csv"), stringsAsFactors = FALSE)
+meta <- read.csv(file.path(csvdir, "sim_meta.csv"),   stringsAsFactors = FALSE)
 
-xc <- read.csv(file.path(csv_dir, "sim_xc.csv"),     stringsAsFactors = FALSE)
-ci <- read.csv(file.path(csv_dir, "sim_cindex.csv"), stringsAsFactors = FALSE)
+# ---- Method palette / shapes (Dark2) ----
+ALL_METHODS <- c("MCE","spline","quadratic","spline_interact","quad_interact","oracle")
+M_LABELS    <- c("MCE","Spline","Quadratic","Spline×Z","Quad.×Z","Oracle")
+method_cols <- setNames(
+  c("#1B9E77","#D95F02","#7570B3","#E7298A","#A6761D","#666666"), M_LABELS)
+method_shapes <- setNames(c(16, 17, 15, 18, 8, 4), M_LABELS)
 
-# --- Column-name compatibility ---
-# Older csv_output/ files use xc_mean/CI_cov_*; current summarizer uses
-# bias/ECP_*.  Only 'bias' and 'ESE' are needed here (both formats have them).
-if (!all(c("bias", "ESE") %in% names(xc))) {
-  stop("sim_xc.csv missing required columns: bias and ESE")
+# ---- Scenario sets ----
+MAIN_SIDS <- c("S02","S05","S07","S08","S09","S10","S12","S15","S17","S18","S19","S20")
+CENS_SIDS <- c("S01","S04","S03","S06","S11","S14","S13","S16")
+B1_SIDS   <- c("S21","S22","S23")
+
+# ---- Helpers ----
+PANEL_LEVELS_MAIN <- c(
+  "logistic, N(0,9)", "logistic, min-EV",
+  "exp, N(0,9)",      "exp, min-EV")
+panel_lab_main <- function(G, ei) {
+  ep <- ifelse(ei == "norm", "N(0,9)", "min-EV")
+  paste0(G, ", ", ep)
 }
-# C-index: current summarizer emits c_test/c_test_sd; older format used
-# c_test_mean/c_test_sd. Normalize to c_test/c_test_sd.
-if ("c_test_mean" %in% names(ci) && !"c_test" %in% names(ci)) {
-  ci$c_test <- ci$c_test_mean
-}
-if (!all(c("c_test", "c_test_sd") %in% names(ci))) {
-  stop("sim_cindex.csv missing required columns: c_test and c_test_sd")
+panel_lab_G <- function(G) ifelse(G == "logistic", "G = logistic", "G = exp")
+
+attach_meta <- function(df) {
+  df %>% inner_join(meta[, c("scenario","n","G_type","ei","cens_rate","beta1")],
+                    by = "scenario")
 }
 
-# --- Method display (order, color, shape, label) ---
-methods_xc <- c("MCE", "spline", "quadratic", "spline_interact", "quad_interact")
-methods_ci <- c("MCE", "spline", "quadratic", "spline_interact", "quad_interact", "oracle")
-labels_all <- c(MCE = "MCE",
-                spline = "Spline",
-                quadratic = "Quadratic",
-                spline_interact = "Spline×Z",
-                quad_interact = "Quad.×Z",
-                oracle = "Oracle")
-# Palette approximates the manuscript figure.
-colors_all <- c(MCE             = "#2CA02C",
-                spline          = "#E58139",
-                quadratic       = "#9E9AC8",
-                spline_interact = "#E377C2",
-                quad_interact   = "#8C6D31",
-                oracle          = "#7F7F7F")
-shapes_all <- c(MCE             = 16,
-                spline          = 17,
-                quadratic       = 15,
-                spline_interact = 18,
-                quad_interact   = 8,
-                oracle          = 4)
+# ---- Build data frames ----
+xc_methods_feas <- setdiff(ALL_METHODS, "oracle")
+ci_methods_all  <- c(ALL_METHODS[1:5], "oracle_v2")
 
-# --- Merge CSVs with scenario metadata ---
-merge_scen <- function(df) {
-  df <- merge(df, scen, by.x = "scenario", by.y = "scenario_id", all.x = TRUE)
-  df$G_lab  <- ifelse(df$G_type == "logistic", "logistic", "exp")
-  df$ei_lab <- ifelse(df$ei == "norm", "N(0,9)", "min-EV")
-  df$GE_lab <- paste0(df$G_lab, ", ", df$ei_lab)
-  df$G_facet <- paste0("G = ", df$G_lab)
-  # Manuscript figure labels 0.40 as "50%"; match this here.
-  df$cens_lab_pct <- ifelse(df$target_cens_rate == 0.40, "50%",
-                            paste0(round(100 * df$target_cens_rate), "%"))
-  df$nc_lab <- paste0("n=", df$n, ", ", df$cens_lab_pct)
-  df
+# X_c data (no oracle)
+mk_xc_df <- function(sids) {
+  xc %>%
+    filter(scenario %in% sids, method %in% xc_methods_feas) %>%
+    mutate(method_lab = factor(method,
+                               levels = ALL_METHODS[1:5],
+                               labels = M_LABELS[1:5])) %>%
+    attach_meta()
 }
-xc <- merge_scen(xc)
-ci <- merge_scen(ci)
+xc_main_df <- mk_xc_df(MAIN_SIDS) %>%
+  mutate(panel = factor(panel_lab_main(G_type, ei), levels = PANEL_LEVELS_MAIN),
+         n_lab = factor(n, levels = c(200, 500, 1000)))
+xc_cens_df <- mk_xc_df(CENS_SIDS) %>%
+  mutate(panel = factor(panel_lab_G(G_type),
+                        levels = c("G = logistic", "G = exp")),
+         cens_pct = round(cens_rate * 100),
+         x_lab = factor(sprintf("n=%d, %d%%", n, cens_pct),
+                        levels = c("n=200, 15%", "n=200, 50%",
+                                   "n=500, 15%", "n=500, 50%")))
+xc_b1_df <- mk_xc_df(B1_SIDS) %>%
+  mutate(n_lab = factor(n, levels = c(200, 500, 1000)))
 
-# --- Panel assignment ---
-panel_a_df <- function(df) df[df$beta1 == 2 & df$target_cens_rate == 0.30, ]
-panel_b_df <- function(df) df[df$beta1 == 2 & df$target_cens_rate != 0.30 & df$ei == "norm", ]
-panel_c_df <- function(df) df[df$beta1 == 1, ]
+# C-index data (all 6 methods; oracle_v2 relabeled to oracle for display)
+mk_ci_df <- function(sids) {
+  ci %>%
+    filter(scenario %in% sids, method %in% ci_methods_all) %>%
+    mutate(method = ifelse(method == "oracle_v2", "oracle", method),
+           method_lab = factor(method, levels = ALL_METHODS, labels = M_LABELS)) %>%
+    attach_meta()
+}
+ci_main_df <- mk_ci_df(MAIN_SIDS) %>%
+  mutate(panel = factor(panel_lab_main(G_type, ei), levels = PANEL_LEVELS_MAIN),
+         n_lab = factor(n, levels = c(200, 500, 1000)))
+ci_cens_df <- mk_ci_df(CENS_SIDS) %>%
+  mutate(panel = factor(panel_lab_G(G_type),
+                        levels = c("G = logistic", "G = exp")),
+         cens_pct = round(cens_rate * 100),
+         x_lab = factor(sprintf("n=%d, %d%%", n, cens_pct),
+                        levels = c("n=200, 15%", "n=200, 50%",
+                                   "n=500, 15%", "n=500, 50%")))
+ci_b1_df <- mk_ci_df(B1_SIDS) %>%
+  mutate(n_lab = factor(n, levels = c(200, 500, 1000)))
 
-GE_LEVELS <- c("logistic, N(0,9)", "logistic, min-EV", "exp, N(0,9)", "exp, min-EV")
-G_LEVELS  <- c("G = logistic", "G = exp")
-
-# --- Shared plotting primitives ---
-theme_biom <- theme_bw(base_size = 10) +
-  theme(strip.background = element_rect(fill = "grey92", color = NA),
-        strip.text = element_text(size = 9),
+# ---- Shared theme ----
+shared_theme <- theme_bw(base_size = 8.5) +
+  theme(legend.position = "bottom",
         panel.grid.minor = element_blank(),
-        legend.position = "bottom",
-        legend.title = element_text(size = 9),
-        legend.text = element_text(size = 9),
-        legend.key.width = unit(1.2, "lines"),
-        plot.title = element_text(size = 10, face = "bold"),
-        axis.title = element_text(size = 9),
-        axis.text = element_text(size = 8))
+        panel.grid.major.x = element_blank(),
+        strip.background = element_rect(fill = "grey92", color = "grey80"),
+        strip.text = element_text(face = "bold", size = 8),
+        plot.title = element_text(face = "bold", size = 9,
+                                  margin = margin(b = 4)),
+        plot.margin = margin(t = 6, r = 6, b = 4, l = 6),
+        legend.key.size = unit(0.45, "cm"),
+        legend.text = element_text(size = 8),
+        axis.text.x = element_text(size = 7.5))
 
-# Dodge width for numeric x (used in panels (a) and (c)).
-DODGE_N <- position_dodge(width = 55)
-DODGE_C <- position_dodge(width = 0.6)  # categorical x (panel (b))
+# ============================================================
+# Topic builder: X_c bias or C-index in the same three-panel design
+# ============================================================
+build_topic <- function(main_df, cens_df, b1_df,
+                        y_expr_main, y_expr_cens, y_expr_b1,
+                        ymin_expr, ymax_expr,
+                        y_lab, drop_oracle, is_xc = FALSE) {
+  drop_arg <- if (drop_oracle) TRUE else FALSE
+  cols_used <- if (drop_oracle) method_cols[1:5] else method_cols
 
-make_plot <- function(df, methods, y_var, y_sd, y_lab,
-                       facet_type = c("2x2", "1x2", "none"),
-                       x_var, dodge, include_hline = FALSE, title = NULL) {
-  facet_type <- match.arg(facet_type)
-  df <- df[df$method %in% methods, ]
-  if (nrow(df) == 0) stop("No rows to plot after filtering methods.")
-  df$method <- factor(df$method, levels = methods)
-  df$.y  <- df[[y_var]]
-  df$.lo <- df[[y_var]] - 1.96 * df[[y_sd]]
-  df$.hi <- df[[y_var]] + 1.96 * df[[y_sd]]
+  # ---- (a) main 2x2 grid ----
+  pA <- ggplot(main_df, aes(x = n_lab, y = !!y_expr_main,
+                            color = method_lab, fill = method_lab,
+                            shape = method_lab))
+  if (is_xc) pA <- pA + geom_hline(yintercept = 0, linetype = "dashed",
+                                   color = "grey50", linewidth = 0.4)
+  pA <- pA +
+    geom_crossbar(aes(ymin = !!ymin_expr, ymax = !!ymax_expr),
+                  width = 0.5, fatten = 0, linewidth = 0.4, alpha = 0.2,
+                  position = position_dodge(width = 0.55)) +
+    geom_point(size = 1.6, position = position_dodge(width = 0.55), stroke = 0.55) +
+    facet_wrap(~ panel, ncol = 2) +
+    scale_x_discrete(expand = expansion(add = 0.5)) +
+    labs(x = "Sample size n", y = y_lab,
+         title = "(a) Main grid: β₁ = 2, 30% censoring") +
+    shared_theme
 
-  p <- ggplot(df, aes(x = .data[[x_var]], y = .y,
-                      color = method, fill = method, shape = method,
-                      group = method))
-  if (include_hline) {
-    p <- p + geom_hline(yintercept = 0, linetype = 2, color = "grey55")
-  }
-  # Box (fill = light method color; no center line).
-  p <- p +
-    geom_crossbar(aes(ymin = .lo, ymax = .hi),
-                  width = if (identical(dodge, DODGE_C)) 0.5 else 45,
-                  fatten = 0, position = dodge, alpha = 0.30,
-                  linewidth = 0.45, show.legend = TRUE) +
-    geom_point(position = dodge, size = 2.2, stroke = 0.7)
+  # ---- (b) censoring sensitivity 1x2 (N error only) ----
+  pB <- ggplot(cens_df, aes(x = x_lab, y = !!y_expr_cens,
+                            color = method_lab, fill = method_lab,
+                            shape = method_lab))
+  if (is_xc) pB <- pB + geom_hline(yintercept = 0, linetype = "dashed",
+                                   color = "grey50", linewidth = 0.4)
+  pB <- pB +
+    geom_crossbar(aes(ymin = !!ymin_expr, ymax = !!ymax_expr),
+                  width = 0.55, fatten = 0, linewidth = 0.4, alpha = 0.2,
+                  position = position_dodge(width = 0.6)) +
+    geom_point(size = 1.6, position = position_dodge(width = 0.6), stroke = 0.55) +
+    facet_wrap(~ panel, ncol = 2) +
+    scale_x_discrete(expand = expansion(add = 0.5)) +
+    labs(x = "Sample size n / censoring %", y = y_lab,
+         title = "(b) Censoring sensitivity (ε = N(0,9), β₁ = 2)") +
+    shared_theme
 
-  if (facet_type == "2x2") {
-    df$GE_lab <- factor(df$GE_lab, levels = GE_LEVELS)
-    p <- p + facet_wrap(~ factor(GE_lab, levels = GE_LEVELS), ncol = 2)
-  } else if (facet_type == "1x2") {
-    df$G_facet <- factor(df$G_facet, levels = G_LEVELS)
-    p <- p + facet_wrap(~ factor(G_facet, levels = G_LEVELS), ncol = 2)
-  }
+  # ---- (c) beta_1 = 1 single panel ----
+  pC <- ggplot(b1_df, aes(x = n_lab, y = !!y_expr_b1,
+                          color = method_lab, fill = method_lab,
+                          shape = method_lab))
+  if (is_xc) pC <- pC + geom_hline(yintercept = 0, linetype = "dashed",
+                                   color = "grey50", linewidth = 0.4)
+  pC <- pC +
+    geom_crossbar(aes(ymin = !!ymin_expr, ymax = !!ymax_expr),
+                  width = 0.5, fatten = 0, linewidth = 0.4, alpha = 0.2,
+                  position = position_dodge(width = 0.55)) +
+    geom_point(size = 1.6, position = position_dodge(width = 0.55), stroke = 0.55) +
+    scale_x_discrete(expand = expansion(add = 0.5)) +
+    labs(x = "Sample size n", y = y_lab,
+         title = "(c) β₁ = 1 sensitivity (logistic, min-EV, 30% censoring)") +
+    shared_theme
 
-  p <- p +
-    scale_color_manual(name = "Method",
-                       values = colors_all[methods],
-                       labels = labels_all[methods]) +
-    scale_fill_manual(name  = "Method",
-                       values = colors_all[methods],
-                       labels = labels_all[methods]) +
-    scale_shape_manual(name = "Method",
-                       values = shapes_all[methods],
-                       labels = labels_all[methods]) +
-    labs(y = y_lab, title = title) +
-    theme_biom
-
-  if (x_var == "n") {
-    p <- p +
-      scale_x_continuous(breaks = sort(unique(df$n))) +
-      labs(x = "Sample size n")
-  } else {
-    lv <- c("n=200, 15%", "n=200, 50%", "n=500, 15%", "n=500, 50%")
-    p <- p +
-      scale_x_discrete(limits = lv) +
-      labs(x = "Sample size n / censoring %")
-  }
-  p
+  # Apply shared scales to all three panels via patchwork &
+  combined <- (pA / pB / pC) +
+    plot_layout(heights = c(2.6, 1.1, 1.0), guides = "collect") &
+    scale_color_manual(values = method_cols, name = "Method", drop = drop_arg) &
+    scale_fill_manual(values = method_cols,  name = "Method", drop = drop_arg) &
+    scale_shape_manual(values = method_shapes, name = "Method", drop = drop_arg) &
+    guides(fill = "none", color = "none",
+           shape = guide_legend(nrow = 1,
+                                override.aes = list(size = 2.8,
+                                                    color = cols_used))) &
+    theme(legend.position = "bottom")
+  combined
 }
 
-# --- Xc figure -------------------------------------------------------------
-y_lab_xc <- expression("Bias of "*hat(X)[c])
+# ============================================================
+# Figure 1: X_c bias
+# ============================================================
+fig_xc <- build_topic(
+  xc_main_df, xc_cens_df, xc_b1_df,
+  y_expr_main = quote(bias), y_expr_cens = quote(bias), y_expr_b1 = quote(bias),
+  ymin_expr = quote(bias - 1.96 * ESE),
+  ymax_expr = quote(bias + 1.96 * ESE),
+  y_lab = expression("Bias of " * hat(X)[c]),
+  drop_oracle = TRUE, is_xc = TRUE)
 
-pa_xc <- make_plot(panel_a_df(xc), methods_xc, "bias", "ESE", y_lab_xc,
-                   facet_type = "2x2", x_var = "n", dodge = DODGE_N,
-                   include_hline = TRUE,
-                   title = expression("(a) Main grid: "*beta[1]*" = 2, 30% censoring"))
-pb_xc <- make_plot(panel_b_df(xc), methods_xc, "bias", "ESE", y_lab_xc,
-                   facet_type = "1x2", x_var = "nc_lab", dodge = DODGE_C,
-                   include_hline = TRUE,
-                   title = expression("(b) Censoring sensitivity ("*epsilon*" = N(0,9), "*beta[1]*" = 2)"))
-pc_xc <- make_plot(panel_c_df(xc), methods_xc, "bias", "ESE", y_lab_xc,
-                   facet_type = "none", x_var = "n", dodge = DODGE_N,
-                   include_hline = TRUE,
-                   title = expression("(c) "*beta[1]*" = 1 sensitivity (logistic, min-EV, 30% censoring)"))
+out_pdf <- file.path(outdir, "fig_sim_xc.pdf")
+ggsave(out_pdf, fig_xc, width = 7.5, height = 8.5, units = "in",
+       device = cairo_pdf)
+cat(sprintf("Wrote %s\n", out_pdf))
 
-fig_xc <- pa_xc / pb_xc / pc_xc +
-  plot_layout(heights = c(2.6, 1.1, 1.0), guides = "collect") &
-  theme(legend.position = "bottom")
+# ============================================================
+# Figure 2: Test-set C-index
+# ============================================================
+fig_ci <- build_topic(
+  ci_main_df, ci_cens_df, ci_b1_df,
+  y_expr_main = quote(c_test_mean), y_expr_cens = quote(c_test_mean),
+  y_expr_b1 = quote(c_test_mean),
+  ymin_expr = quote(c_test_mean - 1.96 * c_test_sd),
+  ymax_expr = quote(c_test_mean + 1.96 * c_test_sd),
+  y_lab = expression("Test-set Harrell's " * italic(C) * "-index"),
+  drop_oracle = FALSE, is_xc = FALSE)
 
-# --- C-index figure -------------------------------------------------------
-y_lab_ci <- "Test-set Harrell's C-index"
-
-pa_ci <- make_plot(panel_a_df(ci), methods_ci, "c_test", "c_test_sd", y_lab_ci,
-                   facet_type = "2x2", x_var = "n", dodge = DODGE_N,
-                   include_hline = FALSE,
-                   title = expression("(a) Main grid: "*beta[1]*" = 2, 30% censoring"))
-pb_ci <- make_plot(panel_b_df(ci), methods_ci, "c_test", "c_test_sd", y_lab_ci,
-                   facet_type = "1x2", x_var = "nc_lab", dodge = DODGE_C,
-                   include_hline = FALSE,
-                   title = expression("(b) Censoring sensitivity ("*epsilon*" = N(0,9), "*beta[1]*" = 2)"))
-pc_ci <- make_plot(panel_c_df(ci), methods_ci, "c_test", "c_test_sd", y_lab_ci,
-                   facet_type = "none", x_var = "n", dodge = DODGE_N,
-                   include_hline = FALSE,
-                   title = expression("(c) "*beta[1]*" = 1 sensitivity (logistic, min-EV, 30% censoring)"))
-
-fig_ci <- pa_ci / pb_ci / pc_ci +
-  plot_layout(heights = c(2.6, 1.1, 1.0), guides = "collect") &
-  theme(legend.position = "bottom")
-
-# --- Save ------------------------------------------------------------------
-ggsave(file.path(out_dir, "fig_sim_xc.pdf"),     fig_xc,
-       width = 7.5, height = 8.5, units = "in")
-ggsave(file.path(out_dir, "fig_sim_cindex.pdf"), fig_ci,
-       width = 7.5, height = 8.5, units = "in")
-
-cat(sprintf("Wrote: %s\n", file.path(out_dir, "fig_sim_xc.pdf")))
-cat(sprintf("Wrote: %s\n", file.path(out_dir, "fig_sim_cindex.pdf")))
+out_pdf <- file.path(outdir, "fig_sim_cindex.pdf")
+ggsave(out_pdf, fig_ci, width = 7.5, height = 8.5, units = "in",
+       device = cairo_pdf)
+cat(sprintf("Wrote %s\n", out_pdf))
