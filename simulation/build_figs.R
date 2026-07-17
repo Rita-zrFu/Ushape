@@ -17,10 +17,12 @@
 #
 # Inputs (defaults):
 #   csv_output/sim_xc.csv, csv_output/sim_cindex.csv
-#   SCENARIOS.csv (for panel assignment via beta1, target_cens_rate, ei, G_type, n)
+#
+# The 23-scenario table is embedded below so that this script has no external
+# CSV dependency other than the aggregated MCE/competitor CSVs.
 #
 # Usage:
-#   Rscript code/build_figs.R [csv_dir] [scenarios_csv] [out_dir]
+#   Rscript build_figs.R [csv_dir] [out_dir]
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -29,15 +31,42 @@ suppressPackageStartupMessages({
 })
 
 args <- commandArgs(trailingOnly = TRUE)
-csv_dir       <- if (length(args) >= 1) args[1] else "csv_output"
-scenarios_csv <- if (length(args) >= 2) args[2] else "SCENARIOS.csv"
-out_dir       <- if (length(args) >= 3) args[3] else "figures"
+csv_dir <- if (length(args) >= 1) args[1] else "csv_output"
+out_dir <- if (length(args) >= 2) args[2] else "figures"
 
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
-scen <- read.csv(scenarios_csv, stringsAsFactors = FALSE)
-xc   <- read.csv(file.path(csv_dir, "sim_xc.csv"),     stringsAsFactors = FALSE)
-ci   <- read.csv(file.path(csv_dir, "sim_cindex.csv"), stringsAsFactors = FALSE)
+# --- Scenario table (matches cluster/dispatch_full.sh) ---
+scen <- read.table(text = "
+scenario_id n    ei      G_type   censor_lo censor_hi beta1 target_cens_rate
+S01         200  norm    logistic 1.9800    9.9800    2     0.15
+S02         200  norm    logistic 0.3000    8.3000    2     0.30
+S03         200  norm    logistic 0.1100    4.9100    2     0.40
+S04         500  norm    logistic 1.9800    9.9800    2     0.15
+S05         500  norm    logistic 0.3000    8.3000    2     0.30
+S06         500  norm    logistic 0.1100    4.9100    2     0.40
+S07         1000 norm    logistic 0.3000    8.3000    2     0.30
+S08         200  ev      logistic 0.3300    8.3300    2     0.30
+S09         500  ev      logistic 0.3300    8.3300    2     0.30
+S10         1000 ev      logistic 0.3300    8.3300    2     0.30
+S11         200  norm    exp      0.0400    4.0400    2     0.15
+S12         200  norm    exp      0.0100    1.9100    2     0.30
+S13         200  norm    exp      0.0300    0.8300    2     0.40
+S14         500  norm    exp      0.0400    4.0400    2     0.15
+S15         500  norm    exp      0.0100    1.9100    2     0.30
+S16         500  norm    exp      0.0300    0.8300    2     0.40
+S17         1000 norm    exp      0.0100    1.9100    2     0.30
+S18         200  ev      exp      0.0400    1.8400    2     0.30
+S19         500  ev      exp      0.0400    1.8400    2     0.30
+S20         1000 ev      exp      0.0400    1.8400    2     0.30
+S21         200  ev      logistic 1.9000    7.9000    1     0.30
+S22         500  ev      logistic 1.9000    7.9000    1     0.30
+S23         1000 ev      logistic 1.9000    7.9000    1     0.30
+",
+header = TRUE, stringsAsFactors = FALSE)
+
+xc <- read.csv(file.path(csv_dir, "sim_xc.csv"),     stringsAsFactors = FALSE)
+ci <- read.csv(file.path(csv_dir, "sim_cindex.csv"), stringsAsFactors = FALSE)
 
 # --- Column-name compatibility ---
 # Older csv_output/ files use xc_mean/CI_cov_*; current summarizer uses
