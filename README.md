@@ -3,7 +3,6 @@
 Code accompanying the manuscript
 
 > **Rank-Based Estimation of U-Shaped Biomarker Risk Curves and Critical Points for Time-to-Event Outcomes**
-> (submitted to *Biometrics*, Biometric Methodology section)
 
 This repository contains the simulation and real-data analysis code used in the paper. It does **not** contain results (per-replicate RDS files, aggregated CSVs, or figure PDFs); those are regenerated locally by running the scripts described below.
 
