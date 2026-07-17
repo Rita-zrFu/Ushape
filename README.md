@@ -121,12 +121,6 @@ Every per-replicate RDS embeds `scenario_id`, `seed`, `batch_tag` (SLURM job id 
 
 ---
 
-## Contact
-
-Corresponding author: Yuxin (Daisy) Zhu, Department of Biostatistics, Johns Hopkins Bloomberg School of Public Health (`daisy@jhu.edu`).
-
-Co-authors: Zhirui Fu, Mei-Cheng Wang, Yu Du.
-
 ## License
 
 TBD.
