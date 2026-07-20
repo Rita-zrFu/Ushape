@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Rank-Based Estimation of U-Shaped Biomarker Risk Curves and Critical Points for Time-to-Event Outcomes"
+abstract: "Simulation study and UK Biobank real data analysis code accompanying the manuscript."
+type: software
+authors:
+  - family-names: Fu
+    given-names: Zhirui
+    affiliation: "Emory University"
+    orcid: "https://orcid.org/0009-0005-6566-7177"
+  - family-names: Zhu
+    given-names: Yuxin
+    affiliation: "Johns Hopkins University"
+    orcid: "https://orcid.org/0000-0001-8441-0290"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.21460945
+    description: "Concept DOI, always resolves to the latest version"
+  - type: doi
+    value: 10.5281/zenodo.21460946
+    description: "Version DOI for v1.0.0"
+repository-code: "https://github.com/Rita-zrFu/Ushape"
+version: 1.0.0
+date-released: 2026-07-20
+license: CC-BY-4.0
