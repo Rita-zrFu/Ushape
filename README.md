@@ -135,14 +135,7 @@ Rscript real_data_analysis/03_plot_fix_bmi.R
 Rscript real_data_analysis/04_plot_fix_time.R
 ```
 
-| script | does | reads | writes |
-|---|---|---|---|
-| `01_build_analytic_dataset.R` | derives the analytic dataset from the raw participant, death, and cause-of-death tables | `data/raw/` | `data/derived/df_for_analysis.csv` |
-| `02_fit_model_optimization.R` | fits the model and runs the bootstrap | `data/derived/df_for_analysis.csv` | `results/realdata_fit.rds`, `results/summary_*.csv` |
-| `03_plot_fix_bmi.R` | risk vs. follow-up time at fixed BMI | derived data + fit | `figures/risk_vs_time_fixed_bmi.png` |
-| `04_plot_fix_time.R` | risk vs. BMI at fixed follow-up times | derived data + fit | `figures/risk_vs_bmi_two_times.pdf` |
-
-All paths in these scripts are relative to the repository root; run them from there. The bootstrap in step 02 may take substantial time.
+Each script depends on the output of the previous one, so run them in order. All paths in these scripts are relative to the repository root; run them from there. The bootstrap in step 02 may take substantial time.
 
 These scripts additionally require `dplyr`, `tidyr`, `readr`, `ggplot2`, `scales`, `patchwork`, `future`, `future.apply`, and `nloptr`, plus the local `mycpp` package (see below).
 
