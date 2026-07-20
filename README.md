@@ -31,9 +31,7 @@ Ushape/
 │   ├── 01_build_analytic_dataset.R    build analytic dataset from raw UK Biobank tables
 │   ├── 02_fit_model_optimization.R    fit the model and run bootstrap inference
 │   ├── 03_plot_fix_bmi.R              risk vs. follow-up time at fixed BMI values
-│   ├── 04_plot_fix_time.R             risk vs. BMI at fixed follow-up times
-│   ├── real data_lilly.R              Eli Lilly analysis prototype
-│   └── bootstrap_realdata_Lilly.R     bootstrap stub
+│   └── 04_plot_fix_time.R             risk vs. BMI at fixed follow-up times
 ├── mycpp/                             local R package with the core model-fitting functions
 └── data/
     └── README.md                      data access policy (no participant data is tracked)
@@ -128,8 +126,6 @@ Every per-replicate RDS embeds `scenario_id`, `seed`, `batch_tag` (SLURM job id 
 
 ## Real-data analysis
 
-### UK Biobank analysis
-
 The UK Biobank analysis reported in Section 7 of the manuscript is run by the four numbered scripts in `real_data_analysis/`, in order:
 
 ```
@@ -149,10 +145,6 @@ Rscript real_data_analysis/04_plot_fix_time.R
 All paths in these scripts are relative to the repository root; run them from there. The bootstrap in step 02 may take substantial time.
 
 These scripts additionally require `dplyr`, `tidyr`, `readr`, `ggplot2`, `scales`, `patchwork`, `future`, `future.apply`, and `nloptr`, plus the local `mycpp` package (see below).
-
-### Eli Lilly prototype
-
-`real_data_analysis/real data_lilly.R` is the Eli Lilly dataset analysis prototype; `bootstrap_realdata_Lilly.R` is a bootstrap stub.
 
 ---
 
