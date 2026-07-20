@@ -12,52 +12,30 @@ It does **not** contain results (per-replicate RDS files, aggregated CSVs, or fi
 
 ---
 
-## Repository structure
+## Repository layout
 
 ```
 Ushape/
-├── simulation/
-│   └── cluster/
-├── real_data_analysis/
-├── mycpp/
-├── data/
 ├── README.md
-└── .gitignore
+├── .gitignore
+├── simulation/
+│   ├── simulation_one_rep.R          per-replicate simulation runner
+│   ├── myCindex.cpp                   Rcpp C-index kernel (hard + smoothed)
+│   ├── summarize_all_to_csv.R         aggregate per-rep RDS → 7 CSVs
+│   ├── reprocess_oracle_v2.R          add corrected oracle Cox to per-rep RDS
+│   ├── build_figs.R                   rebuild fig_sim_xc.pdf and fig_sim_cindex.pdf
+│   └── cluster/
+│       ├── dispatch_full.sh                    SLURM array dispatcher
+│       └── dispatch_reprocess_oracle_v2.sh     SLURM oracle reprocessing dispatcher
+├── real_data_analysis/
+│   ├── 01_build_analytic_dataset.R    build analytic dataset from raw UK Biobank tables
+│   ├── 02_fit_model_optimization.R    fit the model and run bootstrap inference
+│   ├── 03_plot_fix_bmi.R              risk vs. follow-up time at fixed BMI values
+│   └── 04_plot_fix_time.R             risk vs. BMI at fixed follow-up times
+├── mycpp/                             local R package with the core model-fitting functions
+└── data/
+    └── README.md                      data access policy (no participant data is tracked)
 ```
-
-### simulation/
-
-Code for the simulation study.
-
-- `simulation_one_rep.R`: per-replicate simulation runner
-- `myCindex.cpp`: Rcpp C-index kernel (hard + smoothed)
-- `summarize_all_to_csv.R`: aggregate per-rep RDS → 7 CSVs
-- `reprocess_oracle_v2.R`: add corrected oracle Cox to per-rep RDS
-- `build_figs.R`: rebuild fig_sim_xc.pdf and fig_sim_cindex.pdf
-
-`simulation/cluster/` holds the SLURM dispatchers:
-
-- `dispatch_full.sh`: SLURM array dispatcher
-- `dispatch_reprocess_oracle_v2.sh`: SLURM oracle reprocessing dispatcher
-
-### real_data_analysis/
-
-Code for the UK Biobank real data analysis.
-
-- `01_build_analytic_dataset.R`: build the analytic dataset from raw UK Biobank tables
-- `02_fit_model_optimization.R`: fit the model and run bootstrap inference
-- `03_plot_fix_bmi.R`: plot estimated risk versus follow-up time at fixed BMI values
-- `04_plot_fix_time.R`: plot estimated risk versus BMI at fixed follow-up times
-
-### mycpp/
-
-Local R package containing the core model-fitting functions used by the real data analysis.
-
-### data/
-
-Holds the input data. Only `data/README.md` (the data access policy) is tracked; no participant data is included.
-
----
 
 Nothing under `simulation/results/`, `simulation/csv_output/`, `simulation/figures/`, or `simulation/cluster/logs/` is tracked in the repository; these are output directories the pipeline populates locally.
 
