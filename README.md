@@ -124,24 +124,24 @@ Every per-replicate RDS embeds `scenario_id`, `seed`, `batch_tag` (SLURM job id 
 
 ## 3. Real data analysis
 
-### 3.1 Running the analysis
+The UK Biobank analysis reported in Section 7 of the manuscript is carried out by the four numbered scripts in `real_data_analysis/`.
 
-The UK Biobank analysis reported in Section 7 of the manuscript is run by the four numbered scripts in `real_data_analysis/`, in order:
+### 3.1 Data availability
 
-```
-Rscript real_data_analysis/01_build_analytic_dataset.R
-Rscript real_data_analysis/02_fit_model_optimization.R
-Rscript real_data_analysis/03_plot_fix_bmi.R
-Rscript real_data_analysis/04_plot_fix_time.R
-```
+The real-data analysis uses UK Biobank data, which are subject to UK Biobank access terms and **cannot be redistributed**. This repository contains analysis code only — **no individual-level participant data is tracked**, and `data/raw/` and `data/derived/` are excluded by `.gitignore`. See `data/README.md` for details.
 
-Each script depends on the output of the previous one, so run them in order. All paths in these scripts are relative to the repository root; run them from there. The bootstrap in step 02 may take substantial time.
+### 3.2 Dependencies
 
-These scripts additionally require `dplyr`, `tidyr`, `readr`, `ggplot2`, `scales`, `patchwork`, `future`, `future.apply`, and `nloptr`, plus the local `mycpp` package (see 3.2).
+- R >= 4.0 with packages `dplyr`, `tidyr`, `readr`, `ggplot2`, `scales`, `patchwork`, `future`, `future.apply`, `nloptr`
+- The local `mycpp` package (installed in step 3 below)
 
-### 3.2 The `mycpp` package
+### 3.3 Reproducing the real data analysis
 
-`mycpp/` is a local R package holding the core model-fitting functions used by the real-data scripts. Install it before running them:
+**Step 1 — Obtain the data.** Apply for access to the UK Biobank resource through the official application process and obtain the required data fields.
+
+**Step 2 — Place the raw tables under `data/raw/`.** `01_build_analytic_dataset.R` expects the participant, death, and cause-of-death tables there. Nothing under `data/raw/` is tracked by git.
+
+**Step 3 — Install `mycpp`.** `mycpp/` is a local R package holding the core model-fitting functions used by these scripts:
 
 ```
 install.packages("remotes")
@@ -150,11 +150,16 @@ remotes::install_local("mycpp")
 
 Only package sources are tracked; compiled objects (`.o`, `.so`) are rebuilt at install time.
 
-### 3.3 Data availability
+**Step 4 — Run the scripts in order.** Each one depends on the output of the previous:
 
-The real-data analysis uses UK Biobank data, which are subject to UK Biobank access terms and **cannot be redistributed**. This repository contains analysis code only — **no individual-level participant data is tracked**, and `data/raw/` and `data/derived/` are excluded by `.gitignore`.
+```
+Rscript real_data_analysis/01_build_analytic_dataset.R
+Rscript real_data_analysis/02_fit_model_optimization.R
+Rscript real_data_analysis/03_plot_fix_bmi.R
+Rscript real_data_analysis/04_plot_fix_time.R
+```
 
-To reproduce the analysis you must apply for access to the UK Biobank resource, obtain the required fields, and place the raw tables under `data/raw/`. See `data/README.md` for details.
+All paths are relative to the repository root, so run the scripts from there. The bootstrap in step 02 may take substantial time.
 
 ---
 
