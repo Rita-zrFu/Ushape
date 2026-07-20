@@ -1,10 +1,14 @@
-# Ushape
+# Rank-Based Estimation of U-Shaped Biomarker Risk Curves and Critical Points for Time-to-Event Outcomes
 
-Code accompanying the manuscript
+This repository contains the simulation and real-data analysis code for the manuscript of the same name.
 
-> **Rank-Based Estimation of U-Shaped Biomarker Risk Curves and Critical Points for Time-to-Event Outcomes**
+The repository includes:
 
-This repository contains the simulation and real-data analysis code used in the paper. It does **not** contain results (per-replicate RDS files, aggregated CSVs, or figure PDFs); those are regenerated locally by running the scripts described below.
+- Simulation studies evaluating model performance across 23 scenarios and 6 methods
+- Real data analysis based on UK Biobank
+- Estimation, bootstrap inference, and visualization
+
+It does **not** contain results (per-replicate RDS files, aggregated CSVs, or figure PDFs); those are regenerated locally by running the scripts described below.
 
 ---
 
