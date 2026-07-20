@@ -11,23 +11,23 @@ library(readr)
 raw_data_dir <- "data/raw"
 derived_data_dir <- "data/derived"
 
-if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+if (!dir.exists(derived_data_dir)) dir.create(derived_data_dir, recursive = TRUE)
 
 # =========================
 # Read raw data
 # =========================
 data_participant <- read.csv(
-  file = file.path(main_path, "data_participant.csv"),
+  file = file.path(raw_data_dir, "data_participant.csv"),
   header = TRUE
 )
 
 data_death <- read.csv(
-  file = file.path(main_path, "data_death.csv"),
+  file = file.path(raw_data_dir, "data_death.csv"),
   header = TRUE
 )
 
 data_death_cause <- read.csv(
-  file = file.path(main_path, "data_death_cause.csv"),
+  file = file.path(raw_data_dir, "data_death_cause.csv"),
   header = TRUE
 )
 
@@ -164,7 +164,7 @@ df_for_analysis <- analytic_full %>%
 
 write.csv(
   df_for_analysis,
-  file.path(out_dir, "df_for_analysis.csv"),
+  file.path(derived_data_dir, "df_for_analysis.csv"),
   row.names = FALSE
 )
 
