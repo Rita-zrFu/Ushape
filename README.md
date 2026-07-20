@@ -1,5 +1,7 @@
 # Rank-Based Estimation of U-Shaped Biomarker Risk Curves and Critical Points for Time-to-Event Outcomes
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21460945.svg)](https://doi.org/10.5281/zenodo.21460945)
+
 This repository contains the simulation and real-data analysis code for the manuscript of the same name.
 
 The repository includes:
