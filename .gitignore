@@ -21,3 +21,12 @@ figures/
 cluster/logs/
 *.out
 *.err
+
+# UK Biobank data (VERY IMPORTANT - never commit individual-level data)
+data/raw/
+data/derived/
+
+# Compiled objects
+*.o
+*.so
+*.dll

@@ -1,0 +1,19 @@
+Package: mycpp
+Type: Package
+Title: C-index Computation Rcpp
+Version: 0.1.0
+Authors@R: c(
+    person(
+      "Daisy", "Rita",
+      email = "zhirui.fu@emory.edu",
+      role = c("aut", "cre")
+    )
+  )
+Description: Fast C-index and smoothed variants implemented in C++ via Rcpp.
+    Provides functions 'myCindex' and 'myCindex_smooth' for survival models.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports: Rcpp
+LinkingTo: Rcpp
+RoxygenNote: 7.3.2

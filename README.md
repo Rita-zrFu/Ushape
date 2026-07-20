@@ -23,9 +23,16 @@ Ushape/
 │   └── cluster/
 │       ├── dispatch_full.sh                    SLURM array dispatcher
 │       └── dispatch_reprocess_oracle_v2.sh     SLURM oracle reprocessing dispatcher
-└── real_data_analysis/
-    ├── real data_lilly.R              UK Biobank / Lilly analysis prototype
-    └── bootstrap_realdata_Lilly.R     bootstrap stub
+├── real_data_analysis/
+│   ├── 01_build_analytic_dataset.R    build analytic dataset from raw UK Biobank tables
+│   ├── 02_fit_model_optimization.R    fit the model and run bootstrap inference
+│   ├── 03_plot_fix_bmi.R              risk vs. follow-up time at fixed BMI values
+│   ├── 04_plot_fix_time.R             risk vs. BMI at fixed follow-up times
+│   ├── real data_lilly.R              Eli Lilly analysis prototype
+│   └── bootstrap_realdata_Lilly.R     bootstrap stub
+├── mycpp/                             local R package with the core model-fitting functions
+└── data/
+    └── README.md                      data access policy (no participant data is tracked)
 ```
 
 Nothing under `simulation/results/`, `simulation/csv_output/`, `simulation/figures/`, or `simulation/cluster/logs/` is tracked in the repository; these are output directories the pipeline populates locally.
@@ -117,7 +124,52 @@ Every per-replicate RDS embeds `scenario_id`, `seed`, `batch_tag` (SLURM job id 
 
 ## Real-data analysis
 
-`real_data_analysis/real data_lilly.R` is the Eli Lilly dataset analysis prototype; `bootstrap_realdata_Lilly.R` is a bootstrap stub. The UK Biobank analysis reported in Section 7 of the current manuscript is not distributed in this repository because the data are subject to UK Biobank access terms.
+### UK Biobank analysis
+
+The UK Biobank analysis reported in Section 7 of the manuscript is run by the four numbered scripts in `real_data_analysis/`, in order:
+
+```
+Rscript real_data_analysis/01_build_analytic_dataset.R
+Rscript real_data_analysis/02_fit_model_optimization.R
+Rscript real_data_analysis/03_plot_fix_bmi.R
+Rscript real_data_analysis/04_plot_fix_time.R
+```
+
+| script | does | reads | writes |
+|---|---|---|---|
+| `01_build_analytic_dataset.R` | derives the analytic dataset from the raw participant, death, and cause-of-death tables | `data/raw/` | `data/derived/df_for_analysis.csv` |
+| `02_fit_model_optimization.R` | fits the model and runs the bootstrap | `data/derived/df_for_analysis.csv` | `results/realdata_fit.rds`, `results/summary_*.csv` |
+| `03_plot_fix_bmi.R` | risk vs. follow-up time at fixed BMI | derived data + fit | `figures/risk_vs_time_fixed_bmi.png` |
+| `04_plot_fix_time.R` | risk vs. BMI at fixed follow-up times | derived data + fit | `figures/risk_vs_bmi_two_times.pdf` |
+
+All paths in these scripts are relative to the repository root; run them from there. The bootstrap in step 02 may take substantial time.
+
+These scripts additionally require `dplyr`, `tidyr`, `readr`, `ggplot2`, `scales`, `patchwork`, `future`, `future.apply`, and `nloptr`, plus the local `mycpp` package (see below).
+
+### Eli Lilly prototype
+
+`real_data_analysis/real data_lilly.R` is the Eli Lilly dataset analysis prototype; `bootstrap_realdata_Lilly.R` is a bootstrap stub.
+
+---
+
+## The `mycpp` package
+
+`mycpp/` is a local R package holding the core model-fitting functions used by the real-data scripts. Install it before running them:
+
+```
+install.packages("remotes")
+remotes::install_local("mycpp")
+```
+
+Only package sources are tracked; compiled objects (`.o`, `.so`) are rebuilt at install time.
+
+---
+
+## Data availability
+
+The real-data analysis uses UK Biobank data, which are subject to UK Biobank access terms and **cannot be redistributed**. This repository contains analysis code only — **no individual-level participant data is tracked**, and `data/raw/` and `data/derived/` are excluded by `.gitignore`.
+
+To reproduce the analysis you must apply for access to the UK Biobank resource, obtain the required fields, and place the raw tables under `data/raw/`. See `data/README.md` for details.
 
 ---
 
