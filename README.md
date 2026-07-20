@@ -165,4 +165,6 @@ All paths are relative to the repository root, so run the scripts from there. Th
 
 ## 4. License
 
-TBD.
+Released under the [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/) license (CC-BY-4.0); see `LICENSE`. You are free to share and adapt this material, provided you give appropriate credit.
+
+This applies to the code in this repository only. The UK Biobank data are not covered and remain subject to UK Biobank access terms (see 3.1).
